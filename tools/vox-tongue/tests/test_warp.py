@@ -130,6 +130,126 @@ def test_warp_segment_imposes_pitch():
 
 
 # ---------------------------------------------------------------------------
+# Vowel-sustain crossfade loop — holds past the 4x WORLD cap (vault-1gha).
+# ---------------------------------------------------------------------------
+def _capped_hold(source_s: float = 0.25, target_s: float = 2.0):
+    """A short vowel stretched at the WORLD cap toward a long hold — the fixture this feature
+    exists for. Returns ``(warped, target_s)`` where ``warped`` is ~4x the source, still short."""
+    from vox_larynx import world
+
+    seg = _tone(180.0, source_s)
+    warped, ratio = warp_mod._warp_segment(seg, SR, target_s, None, world)
+    assert ratio == pytest.approx(warp_mod.TIME_RATIO_MAX)  # the cap really did bind
+    return np.ascontiguousarray(warped, dtype="float64"), target_s
+
+
+def test_sustain_loop_fills_hold_past_world_cap():
+    """The un-fixed path caps at ~4x the source and comes out SHORT of the note; the sustain loop
+    closes the rest, landing on the target duration."""
+    warped, target = _capped_hold(source_s=0.25, target_s=2.0)
+    capped_dur = len(warped) / SR
+    assert capped_dur == pytest.approx(0.25 * warp_mod.TIME_RATIO_MAX, abs=0.05)
+    assert capped_dur < target - 0.5  # ~1.0 s of a 2.0 s note — the bug being fixed
+
+    out, info = warp_mod._sustain_loop(warped, SR, target)
+    assert info["sustained"] is True
+    assert info["loops"] >= 1
+    assert len(out) / SR == pytest.approx(target, abs=1e-3)  # target duration achieved
+
+
+def test_sustain_loop_noop_when_target_already_met():
+    """No deficit (or one smaller than a single seam) ⇒ no loop, and the row says so."""
+    warped, _target = _capped_hold(source_s=0.25, target_s=2.0)
+    dur = len(warped) / SR
+    for ask in (dur * 0.5, dur, dur + 0.001):
+        out, info = warp_mod._sustain_loop(warped, SR, ask)
+        assert info == {"sustained": False, "loops": 0}
+        assert np.array_equal(out, warped)
+
+
+def test_sustain_loop_seams_are_continuous():
+    """Seam continuity: no click. Two rulers — the worst inter-sample step must stay inside the
+    source's own step distribution, and the 5 ms sliding RMS must not jump >6 dB anywhere across
+    the sustained body (the house `test_join_continuity_no_step` gate)."""
+    warped, target = _capped_hold(source_s=0.25, target_s=2.0)
+    out, info = warp_mod._sustain_loop(warped, SR, target)
+    assert info["sustained"] is True
+
+    # (a) sample-to-sample step, relative to the signal's own distribution: a click is a step far
+    # outside what the un-looped material already contains.
+    src_step = float(np.max(np.abs(np.diff(warped))))
+    out_step = float(np.max(np.abs(np.diff(out))))
+    assert out_step <= src_step * 1.5
+
+    # (b) RMS-delta over a sliding 5 ms window — a discontinuity or a phase-cancelling crossfade
+    # shows up as a notch. Measured against the UN-LOOPED segment's own worst step, so the gate is
+    # "the seams added no ripple the material didn't already have", not an arbitrary threshold. The
+    # first/last 100 ms are excluded from both: the fixture's attack/release are legitimate moves.
+    def _max_rms_step_db(x):
+        win = int(0.005 * SR)
+        rms = np.sqrt(np.convolve(x ** 2, np.ones(win) / win, mode="same") + 1e-12)
+        lo, hi = int(0.1 * SR), len(x) - int(0.1 * SR)
+        frames = rms[lo:hi:win // 2]
+        return float(np.max(20.0 * np.log10(np.maximum(frames[1:], frames[:-1]) /
+                                            np.minimum(frames[1:], frames[:-1]))))
+
+    assert _max_rms_step_db(out) <= _max_rms_step_db(warped) + 1.0
+    assert _max_rms_step_db(out) < 6.0  # and inside the house join-continuity bound outright
+
+
+def test_sustain_loop_keeps_onset_and_offset_intact():
+    """Only INTERIOR material is looped: the reserved head (onset consonant) and tail (offset
+    consonant / release) come through sample-identical to the stretched segment."""
+    warped, target = _capped_hold(source_s=0.25, target_s=2.0)
+    out, info = warp_mod._sustain_loop(warped, SR, target)
+    assert info["sustained"] is True
+
+    a, b = warp_mod._steady_state_region(len(warped))
+    assert a > 0 and b < len(warped)  # a real edge margin was reserved
+    assert np.array_equal(out[:a], warped[:a])              # onset untouched
+    assert np.array_equal(out[len(out) - (len(warped) - b):], warped[b:])  # offset untouched
+    # And the growth is all interior: everything added sits between the two.
+    assert len(out) - len(warped) == pytest.approx(int(round(target * SR)) - len(warped))
+
+
+def test_sustain_loop_skipped_when_interior_too_short():
+    """A segment whose steady state can't host a loop is left alone (and reports it) rather than
+    stitching a seam onto a few milliseconds of material."""
+    tiny = _tone(180.0, 0.03)  # 30 ms -> ~15 ms interior, under the 2x-crossfade floor
+    out, info = warp_mod._sustain_loop(tiny, SR, 1.0)
+    assert info == {"sustained": False, "loops": 0}
+    assert np.array_equal(out, tiny)
+
+
+def test_sustain_not_triggered_in_onset_modes(monkeypatch):
+    """'onsets'/'median-pitch' cap the stretch at ONSET_RATIO_CAP on purpose — the sustain loop must
+    NOT engage there. The note-filling modes ('full', 'time-only') do."""
+    score = compile_mod.compile(["lay low"], ["A3", "C4"], bpm=30)  # 2 s per beat: a long hold
+    vocal = _clicky_word_audio()  # ~0.4 s per word -> raw ratio ~5, past the 4x cap
+
+    def fake_align(v, sr, expected_text, **kw):
+        return ([{"word": "lay", "t0": 0.0, "t1": 0.4, "matched": True},
+                 {"word": "low", "t0": 0.6, "t1": 1.0, "matched": True}],
+                {"n_expected": 2, "n_recognised": 2, "n_matched": 2,
+                 "mismatches": [], "transcript": "lay low"})
+
+    monkeypatch.setattr(warp_mod, "align_words", fake_align)
+
+    for m in ("full", "time-only"):
+        _out, rep = warp_mod.warp_to_score(vocal, SR, score, bpm=30, mode=m)
+        assert all(r["sustained"] for r in rep["syllables"]), m
+        assert all(r["sustain_loops"] >= 1 for r in rep["syllables"]), m
+        # The slot is actually filled now (was ~1.6 s of a 2.0 s note under the bare cap).
+        for r in rep["syllables"]:
+            assert r["achieved_dur"] >= r["target_dur"]
+
+    for m in ("onsets", "median-pitch"):
+        _out, rep = warp_mod.warp_to_score(vocal, SR, score, bpm=30, mode=m)
+        assert not any(r["sustained"] for r in rep["syllables"]), m
+        assert all(r["sustain_loops"] == 0 for r in rep["syllables"]), m
+
+
+# ---------------------------------------------------------------------------
 # Join continuity — the equal-power crossfade must not leave a step at a seam.
 # ---------------------------------------------------------------------------
 def test_join_continuity_no_step():

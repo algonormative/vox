@@ -58,6 +58,22 @@ WARP_MODES = ("full", "time-only", "onsets", "median-pitch")
 # a note-filling warp demands. 1.5x keeps WORLD's formant/timbre artifacts inaudible.
 ONSET_RATIO_CAP = 1.5
 
+# ---------------------------------------------------------------------------
+# Vowel-sustain crossfade loop — holds PAST the 4x WORLD cap (beads vault-1gha).
+# ---------------------------------------------------------------------------
+# The longest melisma holds ask for more than TIME_RATIO_MAX on a short spoken vowel: WORLD
+# stretches to the 4x cap and the syllable STILL comes out short of its note. Rather than push
+# WORLD past the point its artifacts dominate, we stretch at the cap and then LOOP the vowel's
+# steady-state interior with equal-power crossfades until the slot is full — the classic sampler
+# sustain loop. Onset and offset consonants stay untouched: every looped copy is drawn from the
+# interior only, so the segment's head and tail are the stretched material, sample for sample.
+#
+# Only the NOTE-FILLING clamp sustains ('full' / 'time-only'). 'onsets'/'median-pitch' deliberately
+# cap the stretch at ONSET_RATIO_CAP because the onset lands on the grid by placement — filling the
+# interior there would defeat the whole point of the mode.
+SUSTAIN_XFADE_MS = 15.0   # equal-power crossfade at each loop seam
+SUSTAIN_EDGE_FRAC = 0.25  # fraction of the stretched segment reserved at EACH edge (consonants)
+
 # A word whisper never recognised (``matched=False``) has its span *interpolated* from neighbours
 # (:func:`_fill_spans`). That interpolation can hand back a wildly long span (a ~289 ms outlier when a
 # gap is spread over one word), which then drives an extreme WORLD warp ratio + audible artifacts. So
@@ -359,6 +375,102 @@ def _warp_segment(seg: np.ndarray, sr: int, target_dur_s: float, hz, world,
     return np.ascontiguousarray(y, dtype="float64"), ratio
 
 
+def _steady_state_region(n: int) -> tuple[int, int]:
+    """The steady-state interior window ``[a, b)`` of an ``n``-sample stretched syllable.
+
+    **Selection rule: a CENTRED window with :data:`SUSTAIN_EDGE_FRAC` of the segment reserved at
+    each edge** (so the middle 50% by default). Why a fixed fraction rather than a measured vowel
+    detector: the segment handed here is one syllable that has already been trimmed to its voicing
+    (:func:`_trim_lead`) and elastically stretched, so its onset consonant / attack sits in the
+    leading fraction and its offset consonant / release in the trailing fraction — both scale WITH
+    the stretch, which a fixed millisecond margin would not. It is deterministic and needs no pitch
+    or formant analysis. Everything outside ``[a, b)`` is never copied, which is exactly what keeps
+    the onset/offset intact.
+    """
+    edge = int(round(n * SUSTAIN_EDGE_FRAC))
+    return edge, n - edge
+
+
+def _xfade_join(acc: np.ndarray, seg: np.ndarray, xf: int) -> np.ndarray:
+    """Append ``seg`` to ``acc`` over an ``xf``-sample equal-power (sin/cos) crossfade.
+
+    ``sin^2 + cos^2 = 1`` ⇒ constant power across the seam, so a loop point between two stretches of
+    the same vowel joins without a step. The result is ``len(acc) + len(seg) - xf`` samples long —
+    the join's *gain* is ``len(seg) - xf``, which is how :func:`_sustain_loop` hits an exact target.
+    """
+    xf = int(min(xf, len(acc), len(seg)))
+    if xf <= 1:
+        return np.concatenate([acc, seg])
+    fin = np.sin(np.linspace(0.0, np.pi / 2.0, xf))
+    fout = np.cos(np.linspace(0.0, np.pi / 2.0, xf))
+    mixed = acc[-xf:] * fout + seg[:xf] * fin
+    return np.concatenate([acc[:-xf], mixed, seg[xf:]])
+
+
+def _sustain_loop(warped: np.ndarray, sr: int, target_dur_s: float):
+    """Sustain ``warped`` to ``target_dur_s`` by crossfade-looping its vowel steady state.
+
+    The gap this closes is the one :func:`_warp_segment` reports honestly and cannot fill: when a
+    hold demands more than :data:`TIME_RATIO_MAX`, WORLD stretches to the cap and the syllable is
+    still short of its note. Here the remaining deficit is made up by re-playing the steady-state
+    interior (:func:`_steady_state_region`), never the edges.
+
+    Construction — every looped copy is a SUFFIX of the interior, ending at the interior's end
+    ``b``: a copy planned to add ``g`` samples is ``warped[b - g - x : b]``, joined over an
+    ``x``-sample equal-power crossfade, so it adds exactly ``len(seg) - x = g`` and the total lands
+    on ``target_dur_s`` to the sample. Because each copy ends at ``b``, its tail is the original
+    material that ran into the offset consonant, and the LAST copy therefore joins the untouched
+    tail as an exact sample continuation — no seam there at all.
+
+    On the seams themselves: the accumulator invariantly ends at interior index ``b``, so a join
+    blends ``warped[b - x : b]`` against ``warped[b - g - x : b - g]`` — a content lag of exactly
+    ``g``, fixed by the copy's planned gain and by nothing else. There is no loop-point phase
+    search here and adding one would be inert: sliding the copy's start ``s`` while holding the
+    gain exact necessarily slides the crossfade length with it, leaving the blended lag at ``g``.
+    What keeps the seam click-free is simply the equal-power crossfade over
+    :data:`SUSTAIN_XFADE_MS` — measured on the synthetic-vowel fixture, the looped output's worst
+    sliding-RMS step is identical to the un-looped segment's (3.47 dB either way: the seams add no
+    ripple at all), while butt-splicing the same copies roughly doubles the worst inter-sample step
+    on that fixture and multiplies it by up to ~25x on shorter sources.
+
+    Returns ``(out float64, info)`` with ``info = {"sustained": bool, "loops": int}``. No-ops (and
+    reports ``sustained=False``) when the segment already reaches the target, when the deficit is
+    smaller than one crossfade, or when the interior is too short to loop — the honest-clamp ethos:
+    a hold that could not be sustained says so in its report row rather than pretending.
+    """
+    warped = np.ascontiguousarray(warped, dtype="float64")
+    n = len(warped)
+    n_target = int(round(target_dur_s * sr))
+    info = {"sustained": False, "loops": 0}
+    if n == 0 or n_target <= n:
+        return warped, info
+
+    x = max(int(SUSTAIN_XFADE_MS / 1000.0 * sr), 1)
+    a, b = _steady_state_region(n)
+    # Max samples one copy can add: the interior, less the crossfade the join eats.
+    g_max = (b - a) - x
+    deficit = n_target - n
+    if g_max < 2 * x or deficit < x:
+        return warped, info  # interior too short to loop, or gap not worth a seam
+
+    # Spread the deficit over as few copies as possible, near-equally. Every gain then lands in
+    # [x, g_max]: with one copy the gain is the deficit, which the guard put at >= x; with k >= 2
+    # copies, k = ceil(deficit/g_max) implies deficit > (k-1)*g_max >= k*g_max/2, so each gain is
+    # floor(deficit/k) >= g_max/2 >= x by the g_max >= 2x guard. Gain >= x in turn keeps
+    # s = b - g - x >= a, and leaves the accumulator ending in g >= x samples of pristine interior.
+    n_extra = int(np.ceil(deficit / g_max))
+    base, rem = divmod(deficit, n_extra)
+    gains = [base + (1 if i < rem else 0) for i in range(n_extra)]
+
+    out = warped[:b].copy()          # onset + first pass through the interior, untouched
+    tail = warped[b:]                # offset consonant / release, untouched
+    for g in gains:
+        seg = warped[b - g - x:b]    # interior suffix; adds exactly len(seg) - x == g
+        out = _xfade_join(out, seg, x)
+    out = np.concatenate([out, tail])
+    return np.ascontiguousarray(out, dtype="float64"), {"sustained": True, "loops": len(gains)}
+
+
 def _trim_lead(seg: np.ndarray, sr: int, thresh_frac: float = 0.08, preroll_ms: float = 8.0):
     """Trim leading near-silence from an extracted syllable so its VOICING lands on the grid, not
     the dead air a whisper word-start bracket often includes. Keeps a short pre-roll so a consonant
@@ -442,7 +554,12 @@ def warp_pieces(vocal, sr, score, bpm=None, mode="full"):
          "faded": float64,          # warped + equal-power edge fades (assembly-ready)
          "warped": float64,         # warped, pre-fade
          "source": float64,         # the trimmed source segment fed to WORLD (for ESTOI pairing)
-         "row": {...}}              # the report row (onset err, ratio, note, ...)
+         "row": {...}}              # the report row (onset err, ratio, sustain, note, ...)
+
+    A hold that outruns :data:`TIME_RATIO_MAX` is finished by :func:`_sustain_loop` — the vowel's
+    steady state is crossfade-looped to fill the slot — under the note-filling modes only. The row's
+    ``sustained`` / ``sustain_loops`` say whether that happened and how many loops it took, and
+    ``achieved_dur`` reflects the sustained length.
 
     :func:`warp_to_score` assembles ``faded`` onto the grid; a measurement pass can pair ``source``
     with ``warped`` (same content, same length) for a frame-aligned per-syllable ESTOI — the only
@@ -467,6 +584,11 @@ def warp_pieces(vocal, sr, score, bpm=None, mode="full"):
         ratio_min, ratio_max = 1.0 / ONSET_RATIO_CAP, ONSET_RATIO_CAP
     else:
         ratio_min, ratio_max = TIME_RATIO_MIN, TIME_RATIO_MAX
+    # Vowel-sustain applies ONLY under the note-filling clamp: a hold that outruns TIME_RATIO_MAX is
+    # supposed to fill its slot. The onset-oriented modes cap at ONSET_RATIO_CAP on purpose (the
+    # onset lands on grid by placement, the interior is only nudged) — sustaining there would
+    # re-introduce exactly the note-filling they exist to avoid.
+    sustain_allowed = ratio_max >= TIME_RATIO_MAX
 
     groups = _word_groups(score)
     expected_text = " ".join(w for w, _ in groups)
@@ -488,6 +610,12 @@ def warp_pieces(vocal, sr, score, bpm=None, mode="full"):
         warped, ratio = _warp_segment(seg, sr, target_dur + xfade_s,
                                       note_hz if impose_pitch else None, world,
                                       ratio_min=ratio_min, ratio_max=ratio_max)
+        # Past the 4x cap the stretch alone leaves the syllable short of its note; loop the vowel's
+        # steady state to close the rest (onset/offset untouched). Reported per row, honestly.
+        if sustain_allowed:
+            warped, sustain = _sustain_loop(warped, sr, target_dur + xfade_s)
+        else:
+            sustain = {"sustained": False, "loops": 0}
         faded = _equal_power_fades(warped, xfade)
         onset_off = _onset_offset(warped, sr)
         pieces.append({
@@ -506,6 +634,8 @@ def warp_pieces(vocal, sr, score, bpm=None, mode="full"):
                 "actual_t_after_warp": round(float(target_start + onset_off), 4),
                 "onset_err_ms": round(float(onset_off) * 1000.0, 1),
                 "ratio": round(float(ratio), 3),
+                "sustained": bool(sustain["sustained"]),
+                "sustain_loops": int(sustain["loops"]),
                 "achieved_dur": round(len(warped) / float(sr), 4),
             },
         })
@@ -548,7 +678,10 @@ def warp_to_score(vocal, sr, score, bpm=None, mode="full"):
     Unvoiced gaps between grid slots stay silent (the score's rests). Returns ``(samples float32
     mono, warp_report)`` where ``warp_report`` is ``{"mode", "bpm", "sr", "align": <report>,
     "syllables": [ row, ... ]}`` — each row ``{syllable, word, note, hz, pitch_imposed, target_t,
-    target_dur, actual_t_after_warp, onset_err_ms, ratio, achieved_dur}``. In ``'median-pitch'`` the
+    target_dur, actual_t_after_warp, onset_err_ms, ratio, sustained, sustain_loops,
+    achieved_dur}``. Under the note-filling modes a hold longer than the ``TIME_RATIO_MAX`` stretch
+    allows is finished by a vowel steady-state crossfade loop (``sustained``/``sustain_loops``);
+    the onset-oriented modes never sustain. In ``'median-pitch'`` the
     report also carries ``"global_shift": {take_median_hz, score_median_hz, shift_semitones}``.
     """
     score = load_score(score)
