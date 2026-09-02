@@ -14,12 +14,12 @@ Require `uv`, `smpl`, the vox dispatcher, `vox-ear`, and `vox-vector`. If a
 command is missing, show these exact installs and stop until they succeed:
 
 ```bash
-uv tool install git+https://github.com/chronick/smpl#subdirectory=packages/smpl \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smplstream \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smpl-analysis
-uv tool install git+https://github.com/chronick/vox#subdirectory=packages/vox
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-ear
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-vector
+uv tool install git+https://github.com/algonormative/smpl#subdirectory=packages/smpl \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smplstream \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smpl-analysis
+uv tool install git+https://github.com/algonormative/vox#subdirectory=packages/vox
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-ear
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-vector
 ```
 
 Resolve the requested file and analysis intent. Do not overwrite or transform

@@ -35,7 +35,7 @@ build-backend = "hatchling.build"
 packages = ["src/vox_tongue"]
 
 [tool.uv.sources]
-smplstream = { git = "https://github.com/chronick/smpl", subdirectory = "packages/smplstream" }
+smplstream = { git = "https://github.com/algonormative/smpl", subdirectory = "packages/smplstream" }
 vox-core = { path = "../../packages/vox-core", editable = true }
 vox-larynx = { path = "../vox-larynx", editable = true }
 vox-flow = { path = "../vox-flow", editable = true }

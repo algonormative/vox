@@ -18,7 +18,7 @@ import sys
 
 from . import __version__
 
-REPO = "https://github.com/chronick/vox"
+REPO = "https://github.com/algonormative/vox"
 
 # First-party tools and the subdirectory that installs each; keep in step
 # with tools/ as ports land.

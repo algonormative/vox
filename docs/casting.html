@@ -16,7 +16,7 @@
       <a href="./">home</a>
       <a href="singing.html">singing guide</a>
       <a href="./#install">install</a>
-      <a href="https://github.com/chronick/vox">GitHub</a>
+      <a href="https://github.com/algonormative/vox">GitHub</a>
     </nav>
   </header>
 
@@ -39,11 +39,11 @@
     <p>These commands install the smpl frame tools, the light vox dispatcher,
       and the light <code>vox-cast</code> frontend. They do not install an RVC
       model or download a person's voice.</p>
-<pre><span class="c">$</span> uv tool install git+https://github.com/chronick/smpl#subdirectory=packages/smpl <span class="bs">\</span>
-    <span class="f">--with</span> git+https://github.com/chronick/smpl#subdirectory=packages/smplstream <span class="bs">\</span>
-    <span class="f">--with</span> git+https://github.com/chronick/smpl#subdirectory=packages/smpl-analysis
-<span class="c">$</span> uv tool install git+https://github.com/chronick/vox#subdirectory=packages/vox
-<span class="c">$</span> uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-cast</pre>
+<pre><span class="c">$</span> uv tool install git+https://github.com/algonormative/smpl#subdirectory=packages/smpl <span class="bs">\</span>
+    <span class="f">--with</span> git+https://github.com/algonormative/smpl#subdirectory=packages/smplstream <span class="bs">\</span>
+    <span class="f">--with</span> git+https://github.com/algonormative/smpl#subdirectory=packages/smpl-analysis
+<span class="c">$</span> uv tool install git+https://github.com/algonormative/vox#subdirectory=packages/vox
+<span class="c">$</span> uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-cast</pre>
     <p class="requires"><strong>Also required:</strong> <code>uv</code> on
       <code>PATH</code> and a network connection for the one-time setup below.
       Conversion itself is local after setup.</p>
@@ -148,8 +148,8 @@
     <p>Listen dry against wet for intelligibility, pitch stability, consonant
       damage, breath artifacts, and whether the performance still feels like
       the source. For a measured comparison, add the analysis tools:</p>
-<pre><span class="c">$</span> uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-ear
-<span class="c">$</span> uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-vector
+<pre><span class="c">$</span> uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-ear
+<span class="c">$</span> uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-vector
 
 <span class="c">$</span> smpl read take.wav <span class="p">|</span> vox ear describe <span class="p">|</span> vox vector measure <span class="p">|</span> smpl view
 <span class="c">$</span> smpl read voiced.wav <span class="p">|</span> vox ear describe <span class="p">|</span> vox vector measure <span class="p">|</span> smpl view</pre>
@@ -173,13 +173,13 @@
   </section>
 
   <footer>
-    <p>MIT · <a href="https://github.com/chronick/vox">github.com/chronick/vox</a> ·
-      <a href="https://github.com/chronick/vox/blob/main/CASTS.md">CASTS.md</a> ·
+    <p>MIT · <a href="https://github.com/algonormative/vox">github.com/algonormative/vox</a> ·
+      <a href="https://github.com/algonormative/vox/blob/main/CASTS.md">CASTS.md</a> ·
       <a href="./">vox home</a></p>
     <p>Part of the LEMON house:
       <a href="https://lemon-agent.dev">lemon-agent.dev</a> ·
       <a href="https://lemon.audio">lemon.audio</a> ·
-      <a href="https://chronick.github.io/smpl/">smpl</a>.</p>
+      <a href="https://algonormative.github.io/smpl/">smpl</a>.</p>
   </footer>
 </div>
 <script src="copy.js"></script>

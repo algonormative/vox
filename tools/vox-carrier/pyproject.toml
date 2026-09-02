@@ -32,8 +32,8 @@ packages = ["src/vox_carrier"]
 constraint-dependencies = ["numba>=0.59", "llvmlite>=0.42"]
 
 [tool.uv.sources]
-smplstream = { git = "https://github.com/chronick/smpl", subdirectory = "packages/smplstream" }
-smpl-analysis = { git = "https://github.com/chronick/smpl", subdirectory = "packages/smpl-analysis" }
+smplstream = { git = "https://github.com/algonormative/smpl", subdirectory = "packages/smplstream" }
+smpl-analysis = { git = "https://github.com/algonormative/smpl", subdirectory = "packages/smpl-analysis" }
 vox-bodies = { path = "../vox-bodies", editable = true }
 vox-flow = { path = "../vox-flow", editable = true }
 vox-lyric = { path = "../vox-lyric", editable = true }

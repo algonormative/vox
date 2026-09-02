@@ -31,8 +31,8 @@ build-backend = "hatchling.build"
 packages = ["src/vox_syllabank"]
 
 [tool.uv.sources]
-smplstream = { git = "https://github.com/chronick/smpl", subdirectory = "packages/smplstream" }
-smpl-synth = { git = "https://github.com/chronick/smpl", subdirectory = "tools/smpl-synth" }
+smplstream = { git = "https://github.com/algonormative/smpl", subdirectory = "packages/smplstream" }
+smpl-synth = { git = "https://github.com/algonormative/smpl", subdirectory = "tools/smpl-synth" }
 vox-core = { path = "../../packages/vox-core", editable = true }
 
 [dependency-groups]

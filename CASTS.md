@@ -10,18 +10,18 @@ Use only a self-trained voice, an explicitly licensed model made with informed
 consent, or a synthetic voice. Do not use casts to impersonate someone.
 
 The complete first-run web walkthrough is the
-[RVC cast guide](https://chronick.github.io/vox/casting.html).
+[RVC cast guide](https://algonormative.github.io/vox/casting.html).
 
 ## Install
 
 The runnable pipe needs smpl, the light vox dispatcher, and `vox-cast`:
 
 ```bash
-uv tool install git+https://github.com/chronick/smpl#subdirectory=packages/smpl \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smplstream \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smpl-analysis
-uv tool install git+https://github.com/chronick/vox#subdirectory=packages/vox
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-cast
+uv tool install git+https://github.com/algonormative/smpl#subdirectory=packages/smpl \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smplstream \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smpl-analysis
+uv tool install git+https://github.com/algonormative/vox#subdirectory=packages/vox
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-cast
 ```
 
 ## Shared engine setup is not cast installation

@@ -23,7 +23,7 @@ packages = ["src/vox_cast"]
 "src/vox_cast/engine-requirements.lock" = "vox_cast/engine-requirements.lock"
 
 [tool.uv.sources]
-smplstream = { git = "https://github.com/chronick/smpl", subdirectory = "packages/smplstream" }
+smplstream = { git = "https://github.com/algonormative/smpl", subdirectory = "packages/smplstream" }
 
 [dependency-groups]
 dev = ["pytest>=8"]

@@ -34,16 +34,16 @@ step() {  # name, then the command as remaining args
 # ---------------------------------------------------------- installs ----
 # smpl core, exactly as the smpl README documents it.
 step "install smpl core" uv tool install --quiet \
-  "git+https://github.com/chronick/smpl#subdirectory=packages/smpl" \
-  --with "git+https://github.com/chronick/smpl#subdirectory=packages/smplstream" \
-  --with "git+https://github.com/chronick/smpl#subdirectory=packages/smpl-analysis"
+  "git+https://github.com/algonormative/smpl#subdirectory=packages/smpl" \
+  --with "git+https://github.com/algonormative/smpl#subdirectory=packages/smplstream" \
+  --with "git+https://github.com/algonormative/smpl#subdirectory=packages/smpl-analysis"
 
 # Vox tools use the same package boundaries as INSTALL.md. The checkout is the
 # default so CI verifies the code under test rather than whatever is currently
 # published on `main`; VOX_GIT_REF enables an explicit post-release check.
 for t in packages/vox tools/vox-ear tools/vox-larynx tools/vox-vector tools/vox-lyric tools/vox-tongue tools/vox-cast; do
   if [[ -n "${VOX_GIT_REF:-}" ]]; then
-    source_spec="git+https://github.com/chronick/vox@${VOX_GIT_REF}#subdirectory=$t"
+    source_spec="git+https://github.com/algonormative/vox@${VOX_GIT_REF}#subdirectory=$t"
   else
     source_spec="$REPO_ROOT/$t"
   fi
@@ -72,7 +72,7 @@ step "smpl --help runs" sh -c 'smpl --help > /dev/null'
 
 # ----------------------------------------------- analyze-card quick start ----
 step "analyze card: download shipped take" \
-  curl -fL -o guide-sung.wav https://chronick.github.io/vox/assets/guide-sung.wav
+  curl -fL -o guide-sung.wav https://algonormative.github.io/vox/assets/guide-sung.wav
 step "analyze card: reproduce measured values" sh -c \
   'smpl read guide-sung.wav | vox ear describe | vox vector measure | smpl view > /dev/null 2>guide-report.md && grep -q "130.83" guide-report.md && grep -q "24.08" guide-report.md'
 

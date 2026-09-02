@@ -20,7 +20,7 @@ build-backend = "hatchling.build"
 packages = ["src/vox_flow"]
 
 [tool.uv.sources]
-smplstream = { git = "https://github.com/chronick/smpl", subdirectory = "packages/smplstream" }
+smplstream = { git = "https://github.com/algonormative/smpl", subdirectory = "packages/smplstream" }
 
 [dependency-groups]
 dev = ["pytest>=8"]

@@ -37,7 +37,7 @@ packages = ["src/vox_dataset"]
 
 # Resolve the unpublished core package from the monorepo for the isolated install.
 [tool.uv.sources]
-smplstream = { git = "https://github.com/chronick/smpl", subdirectory = "packages/smplstream" }
+smplstream = { git = "https://github.com/algonormative/smpl", subdirectory = "packages/smplstream" }
 vox-core = { path = "../../packages/vox-core", editable = true }
 
 [dependency-groups]

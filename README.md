@@ -4,7 +4,7 @@
 
 **Voice synthesis and voice analysis as pipe tools, on the smpl frame protocol.**
 
-*The voice family of the [smpl](https://github.com/chronick/smpl) toolchain,
+*The voice family of the [smpl](https://github.com/algonormative/smpl) toolchain,
 grown into its own package: measure a voice like an instrument, control a
 render like a score, and verify what came out against what was asked for.*
 
@@ -23,7 +23,7 @@ that pipe; every workflow below links to its complete prerequisites.
 `smpl`, so the two toolchains sit in one pipe: smpl handles audio-in,
 storage, and reporting; vox contributes the voice-specific stages.
 
-> **Site**: <https://chronick.github.io/vox/> — hear the voices the
+> **Site**: <https://algonormative.github.io/vox/> — hear the voices the
 > toolchain builds from synthetic sources alone.
 
 ## Status
@@ -58,11 +58,11 @@ rendered through smpl-synth's NRT bridge).
   `vox-vector`, then run the measured ear → vector report. [Exact installs and
   first command](INSTALL.md#analyze-a-recording).
 - **Make macOS `say` sing:** install the seven-piece singing stack, then follow
-  the [real six-command guide](https://chronick.github.io/vox/singing.html) from
+  the [real six-command guide](https://algonormative.github.io/vox/singing.html) from
   spoken line to measured choir.
 - **Use an RVC cast:** install smpl, the dispatcher, and `vox-cast`; set up the
   shared inference engine, then import a self-trained, explicitly licensed, or
-  synthetic model. [Safe cast guide](https://chronick.github.io/vox/casting.html).
+  synthetic model. [Safe cast guide](https://algonormative.github.io/vox/casting.html).
 
 `vox cast setup` installs an isolated inference environment plus about 732 MB
 of shared HuBERT/RMVPE assets. It does **not** install a person's voice. vox
@@ -125,7 +125,7 @@ Two concise agent skills ship in `skills/`. Install them through the shared
 skills CLI so Codex and Claude Code use one managed copy:
 
 ```bash
-npx skills add chronick/vox --global --agent codex claude-code --yes
+npx skills add algonormative/vox --global --agent codex claude-code --yes
 ```
 
 - **`vox-analyze`** runs measured ear/vector reports, cites values with units,
@@ -138,7 +138,7 @@ download voice models, or replace the producer's final judgment.
 
 Part of the LEMON house: [lemon-agent.dev](https://lemon-agent.dev) ·
 [lemon.audio](https://lemon.audio) ·
-[smpl](https://chronick.github.io/smpl/).
+[smpl](https://algonormative.github.io/smpl/).
 
 ## License
 

@@ -27,11 +27,11 @@ identifies the artifact but does not establish consent or permission.
 Require `uv`, `smpl`, the vox dispatcher, and `vox-cast`. If missing, show:
 
 ```bash
-uv tool install git+https://github.com/chronick/smpl#subdirectory=packages/smpl \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smplstream \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smpl-analysis
-uv tool install git+https://github.com/chronick/vox#subdirectory=packages/vox
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-cast
+uv tool install git+https://github.com/algonormative/smpl#subdirectory=packages/smpl \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smplstream \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smpl-analysis
+uv tool install git+https://github.com/algonormative/vox#subdirectory=packages/vox
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-cast
 ```
 
 Inspect without changing state:
