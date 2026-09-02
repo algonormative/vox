@@ -13,7 +13,7 @@ Everything installs with [uv](https://docs.astral.sh/uv/).
   `vox ear …` runs the separately installed `vox-ear`. If a tool is
   missing, the error prints the exact install command for it.
 - **Tools** live under `tools/` and install independently. Most speak
-  the [smpl](https://github.com/chronick/smpl) frame protocol on
+  the [smpl](https://github.com/algonormative/smpl) frame protocol on
   stdin/stdout, so they sit inside smpl pipes.
 - **`vox-core`** is a shared library some tools depend on (pulled in
   automatically; you never install it directly).
@@ -22,31 +22,31 @@ Everything installs with [uv](https://docs.astral.sh/uv/).
 
 ```bash
 # the dispatcher
-uv tool install git+https://github.com/chronick/vox#subdirectory=packages/vox
+uv tool install git+https://github.com/algonormative/vox#subdirectory=packages/vox
 
 # then any tools you want (each is standalone):
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-ear
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-larynx
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-vector
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-lyric
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-corpus
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-flow
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-syllabank
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-dataset
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-take
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-bodies
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-tongue
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-carrier
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-cast
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-ear
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-larynx
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-vector
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-lyric
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-corpus
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-flow
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-syllabank
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-dataset
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-take
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-bodies
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-tongue
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-carrier
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-cast
 ```
 
 For pipe examples, install the smpl core (`smpl read`, `smpl write`,
 `smpl view`) too:
 
 ```bash
-uv tool install git+https://github.com/chronick/smpl#subdirectory=packages/smpl \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smplstream \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smpl-analysis
+uv tool install git+https://github.com/algonormative/smpl#subdirectory=packages/smpl \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smplstream \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smpl-analysis
 ```
 
 ## First-run recipes
@@ -56,14 +56,14 @@ Each recipe is complete: install the listed pieces, then run its command.
 ### Analyze a recording
 
 ```bash
-uv tool install git+https://github.com/chronick/smpl#subdirectory=packages/smpl \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smplstream \
-  --with git+https://github.com/chronick/smpl#subdirectory=packages/smpl-analysis
-uv tool install git+https://github.com/chronick/vox#subdirectory=packages/vox
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-ear
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-vector
+uv tool install git+https://github.com/algonormative/smpl#subdirectory=packages/smpl \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smplstream \
+  --with git+https://github.com/algonormative/smpl#subdirectory=packages/smpl-analysis
+uv tool install git+https://github.com/algonormative/vox#subdirectory=packages/vox
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-ear
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-vector
 
-curl -LO https://chronick.github.io/vox/assets/guide-sung.wav
+curl -LO https://algonormative.github.io/vox/assets/guide-sung.wav
 smpl read guide-sung.wav | vox ear describe | vox vector measure | smpl view
 ```
 
@@ -75,15 +75,15 @@ Once those rows appear, replace `guide-sung.wav` with your own recording.
 Install smpl and the dispatcher as above, then:
 
 ```bash
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-lyric
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-tongue
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-larynx
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-ear
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-vector
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-lyric
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-tongue
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-larynx
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-ear
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-vector
 ```
 
 This path also needs a Mac with `say`. The
-[six-command guide](https://chronick.github.io/vox/singing.html) starts at a
+[six-command guide](https://algonormative.github.io/vox/singing.html) starts at a
 spoken line and ends at a measured five-voice choir; it does not need
 SuperCollider.
 
@@ -92,7 +92,7 @@ SuperCollider.
 Install smpl and the dispatcher as above, then:
 
 ```bash
-uv tool install git+https://github.com/chronick/vox#subdirectory=tools/vox-cast
+uv tool install git+https://github.com/algonormative/vox#subdirectory=tools/vox-cast
 vox cast setup
 vox cast import --model ~/Downloads/mycast.pth --name mycast
 vox cast list
@@ -146,7 +146,7 @@ vox ear --help    # errors with the install command if vox-ear is absent
 ## Development
 
 ```bash
-git clone https://github.com/chronick/vox && cd vox
+git clone https://github.com/algonormative/vox && cd vox
 # per tool:
 cd tools/vox-ear && uv sync && uv run pytest -q
 # the workspace packages (dispatcher + vox-core):
