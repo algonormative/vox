@@ -7,6 +7,7 @@ line per check). Model-extensible: one yaml profile per voicebank kind.
 ```bash
 vox-dataset health <dir> [--profile diffsinger-acoustic] [--json] [--transcripts x.csv] [--whisper]
 vox-dataset coverage <dir> --phones [--transcripts x.csv]
+vox-dataset coverage --script script.txt [--words "..."] [--gate] [--json]   # text only, no audio
 vox-dataset profiles
 ```
 
@@ -41,6 +42,17 @@ a failed `critical` check flags `critical_fail` (grade **BLOCKED**).
 Phone/syllable coverage needs text. Supply `--transcripts` (CSV `filename,text`) or `--whisper`
 (faster-whisper, an optional dependency). Without either, phone coverage is reported **unknown**
 and the transcript-dependent rubric checks become `na` — everything else still scores.
+
+## Gating a recording script before you record it
+
+`coverage --script <file.txt>` / `--words "..."` is the **text-only** mode: no audio is read
+(`--transcripts`/`--whisper` are ignored). It g2p's the wordlist through the same CMUdict path and
+scores it with the same `phones.coverage`, so the weighted % *is* the `phone_coverage_weighted_pct`
+metric the **diffsinger-acoustic** rubric checks against its >= 95% target — a syllabary or
+synthetic prompt set can be pre-validated before anyone sings it. Output: covered `n/39` raw +
+weighted, the phone grid, missing / rare phones, out-of-dictionary words, and a PASS/FAIL line
+against that target. It is a **report**: exit 0 even when coverage is incomplete. Pass `--gate`
+to exit 1 instead when weighted coverage is below the target (for CI / script pre-checks).
 
 ## Dev
 

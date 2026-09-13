@@ -124,6 +124,45 @@ def transcript_stats(text: str) -> dict:
     }
 
 
+def script_coverage(text: str, rare_threshold: int = 2) -> dict:
+    """Text-only phone coverage: g2p a recording script and score it before anything is recorded.
+
+    The audio-free sibling of the transcript path — same G2P, same :func:`coverage` weighting, so
+    the ``weighted_pct`` here is the SAME number the ``phone_coverage_weighted_pct`` rubric metric
+    reads. Returns ``{counts, coverage, syllables, words, words_in_dict, words_out, oov}`` where
+    ``oov`` lists the unique out-of-dictionary tokens in first-seen order (they contribute to
+    ``words``/``words_out`` but not to phones or syllables).
+    """
+    counts: dict[str, int] = {}
+    syllables = 0
+    words = 0
+    in_dict = 0
+    oov: list[str] = []
+    seen_oov: set[str] = set()
+    for tok in tokenize(text):
+        words += 1
+        word_phones = phones_for_word(tok)
+        if word_phones is None:
+            if tok not in seen_oov:
+                seen_oov.add(tok)
+                oov.append(tok)
+            continue
+        in_dict += 1
+        syllables += syllable_count(word_phones)
+        for ph in word_phones:
+            b = bare(ph)
+            counts[b] = counts.get(b, 0) + 1
+    return {
+        "counts": dict(sorted(counts.items())),
+        "coverage": coverage(counts, rare_threshold=rare_threshold),
+        "syllables": syllables,
+        "words": words,
+        "words_in_dict": in_dict,
+        "words_out": words - in_dict,
+        "oov": oov,
+    }
+
+
 def coverage(phone_counts: dict[str, int], rare_threshold: int = 2) -> dict:
     """Phone coverage of an aggregate ``phone_counts`` against the full ARPABET inventory.
 
