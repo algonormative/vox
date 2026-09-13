@@ -2,12 +2,18 @@
 
     vox-dataset health <dir> [--profile diffsinger-acoustic] [--json] [--transcripts x.csv]
     vox-dataset coverage <dir> --phones [--transcripts x.csv] [--whisper]
+    vox-dataset coverage --script script.txt [--words "..."] [--gate] [--json]
     vox-dataset profiles
 
 `health` measures every clip under <dir>, aggregates, and (with --profile) scores it against a
 rubric — a pretty report by default, or a machine report with --json. `coverage --phones` is a
 quick phone-inventory view. Transcripts come from --transcripts (CSV: filename,text) or, with
 --whisper, from faster-whisper if installed (otherwise phone coverage is reported as 'unknown').
+
+`coverage --script/--words` is the TEXT-ONLY mode: no audio is read at all — it g2p's a wordlist
+(a syllabary, a synthetic prompt set) and reports coverage against the 39-phone ARPABET inventory,
+so a recording script can be gated BEFORE anyone records it. The weighted % is the same metric the
+diffsinger-acoustic rubric scores, so a script can be pre-validated against its >= 95% target.
 """
 
 from __future__ import annotations
@@ -17,7 +23,10 @@ import json
 import sys
 from pathlib import Path
 
-from . import health, rubric
+from . import health, phones, rubric
+
+# The rubric profile whose phone-coverage target a script is pre-validated against.
+_TARGET_PROFILE = "diffsinger-acoustic"
 
 
 # --------------------------------------------------------------------------- formatting
@@ -117,21 +126,11 @@ def render_report(report: dict, scored: dict | None, color: bool = True) -> str:
     return "\n".join(lines)
 
 
-def render_coverage(report: dict, color: bool = True) -> str:
-    ph = report["phones"]
-    lines = [_c(f"phone coverage  {report.get('directory','?')}", "1", color), ""]
-    if not ph["have_transcripts"]:
-        lines.append(_c("  unknown — no transcripts. Supply --transcripts CSV or --whisper.", "90", color))
-        return "\n".join(lines)
-    cov = ph["coverage"]
-    lines.append(f"  present  {cov['n_present']}/{cov['n_inventory']}"
-                 f"  ({cov['raw_pct']}% raw, {cov['weighted_pct']}% weighted)")
-    lines.append("")
-    counts = ph["counts"]
-    from .phones import ARPABET_INVENTORY
-
-    row = []
-    for p in ARPABET_INVENTORY:
+def _phone_grid(counts: dict, color: bool = True) -> list[str]:
+    """The per-phone ``NAME:count`` grid, 8 to a row (red = absent, yellow = thin)."""
+    lines: list[str] = []
+    row: list[str] = []
+    for p in phones.ARPABET_INVENTORY:
         n = counts.get(p, 0)
         cell = f"{p}:{n}"
         if n == 0:
@@ -144,9 +143,49 @@ def render_coverage(report: dict, color: bool = True) -> str:
             row = []
     if row:
         lines.append("  " + "  ".join(row))
+    return lines
+
+
+def render_coverage(report: dict, color: bool = True) -> str:
+    ph = report["phones"]
+    lines = [_c(f"phone coverage  {report.get('directory','?')}", "1", color), ""]
+    if not ph["have_transcripts"]:
+        lines.append(_c("  unknown — no transcripts. Supply --transcripts CSV or --whisper.", "90", color))
+        return "\n".join(lines)
+    cov = ph["coverage"]
+    lines.append(f"  present  {cov['n_present']}/{cov['n_inventory']}"
+                 f"  ({cov['raw_pct']}% raw, {cov['weighted_pct']}% weighted)")
+    lines.append("")
+    lines.extend(_phone_grid(ph["counts"], color))
     if cov["missing"]:
         lines.append("")
         lines.append(_c(f"  missing: {', '.join(cov['missing'])}", "31", color))
+    return "\n".join(lines)
+
+
+def render_script_coverage(report: dict, target: float | None, color: bool = True) -> str:
+    """Render the text-only (pre-recording) script coverage report."""
+    cov = report["coverage"]
+    lines = [_c("phone coverage  (script — text only, no audio)", "1", color), ""]
+    lines.append(f"  words    {report['words']}  ({report['words_in_dict']} in dict,"
+                 f" {report['words_out']} out)")
+    lines.append(f"  present  {cov['n_present']}/{cov['n_inventory']}"
+                 f"  ({cov['raw_pct']}% raw, {cov['weighted_pct']}% weighted)")
+    lines.append("")
+    lines.extend(_phone_grid(report["counts"], color))
+    lines.append("")
+    if cov["missing"]:
+        lines.append(_c(f"  missing: {', '.join(cov['missing'])}", "31", color))
+    if cov["rare"]:
+        lines.append(_c(f"  rare (<=2): {', '.join(cov['rare'])}", "33", color))
+    if report["oov"]:
+        lines.append(_c(f"  OOV: {', '.join(report['oov'])}", "33", color))
+    else:
+        lines.append("  OOV: none")
+    if target is not None:
+        ok = cov["weighted_pct"] >= target
+        verdict = _c("PASS", "32", color) if ok else _c("FAIL", "31", color)
+        lines.append(f"  {_TARGET_PROFILE} target: weighted >= {_fmt_num(target)}%  -> {verdict}")
     return "\n".join(lines)
 
 
@@ -198,7 +237,58 @@ def cmd_health(args) -> int:
     return 0
 
 
+def _script_text(args) -> str | None:
+    """The text selecting the text-only mode: --script file + --words, concatenated (None if neither)."""
+    parts: list[str] = []
+    if args.script:
+        parts.append(Path(args.script).read_text(encoding="utf-8"))
+    if args.words:
+        parts.append(args.words)
+    return "\n".join(parts) if parts else None
+
+
+def _weighted_target(profile: str = _TARGET_PROFILE) -> float | None:
+    """The rubric's weighted phone-coverage target (e.g. 95), or None if unreadable."""
+    try:
+        prof = rubric.load_profile(profile)
+    except Exception:  # noqa: BLE001 — a missing/unreadable profile just drops the verdict line
+        return None
+    for check in prof.get("checks", []):
+        if check.get("metric") == "phone_coverage_weighted_pct":
+            try:
+                return float(check["target"])
+            except (KeyError, TypeError, ValueError):
+                return None
+    return None
+
+
+def cmd_coverage_script(args, text: str) -> int:
+    """Text-only phone coverage: g2p a wordlist, no audio touched."""
+    if args.transcripts or args.whisper:
+        print("note: text-only mode (--script/--words) — --transcripts/--whisper ignored.",
+              file=sys.stderr)
+    if not phones.have_pronouncing():
+        print("error: text-only coverage needs the `pronouncing` (CMUdict) package installed.",
+              file=sys.stderr)
+        return 1
+    report = phones.script_coverage(text)
+    target = _weighted_target()
+    if args.json:
+        out = dict(report)
+        out["target_profile"] = _TARGET_PROFILE
+        out["target_weighted_pct"] = target
+        print(json.dumps(out, indent=2, default=_json_default))
+    else:
+        print(render_script_coverage(report, target, color=_use_color(args)))
+    if args.gate and target is not None and report["coverage"]["weighted_pct"] < target:
+        return 1
+    return 0
+
+
 def cmd_coverage(args) -> int:
+    text = _script_text(args)
+    if text is not None:
+        return cmd_coverage_script(args, text)
     transcripts = _load_transcripts(args)
     use_whisper = args.whisper and health.whisper_available()
     report = health.measure_dataset(
@@ -258,9 +348,16 @@ def main(argv=None) -> int:
     h.add_argument("--out", help="also write full JSON report to this path")
     h.set_defaults(func=cmd_health)
 
-    c = sub.add_parser("coverage", help="quick phone-inventory view")
-    c.add_argument("directory")
+    c = sub.add_parser("coverage",
+                       help="quick phone-inventory view — of a dataset, or (--script/--words) of a "
+                            "recording script before it is recorded")
+    c.add_argument("directory", nargs="?", help="dataset directory (omit when using --script/--words)")
     c.add_argument("--phones", action="store_true", help="show the ARPABET phone inventory")
+    c.add_argument("--script", help="text file of words/lines to g2p (text-only mode, no audio read)")
+    c.add_argument("--words", help="inline text to g2p (text-only mode); combines with --script")
+    c.add_argument("--gate", action="store_true",
+                   help=f"text-only mode: exit 1 when weighted coverage is below the "
+                        f"{_TARGET_PROFILE} target")
     c.add_argument("--transcripts", help="CSV of filename,text")
     c.add_argument("--whisper", action="store_true", help="transcribe with faster-whisper")
     c.add_argument("--whisper-size", default="base")
@@ -271,6 +368,9 @@ def main(argv=None) -> int:
     p.set_defaults(func=cmd_profiles)
 
     args = parser.parse_args(argv)
+    if args.command == "coverage" and not (args.directory or args.script or args.words):
+        parser.error("coverage needs a dataset <directory>, or --script FILE / --words TEXT "
+                     "for the text-only (pre-recording) mode")
     return args.func(args)
 
 
